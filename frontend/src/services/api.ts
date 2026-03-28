@@ -20,7 +20,7 @@ export interface ProcessResponse {
   confidence: number;
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://saathi-backend-kgzlbaodia-uc.a.run.app";
 
 export async function processRequest(req: ProcessRequest): Promise<ProcessResponse> {
   const response = await fetch(`${API_BASE_URL}/api/process`, {
