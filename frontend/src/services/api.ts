@@ -1,9 +1,3 @@
-// Configuration constants
-const REQUEST_TIMEOUT_MS = 30000; // 30 seconds
-const MAX_DISTANCE_KM = 100;
-const MAX_EARNINGS = 100000;
-const MIN_EARNINGS = 0;
-
 // Custom error type for API failures
 export class APIError extends Error {
   constructor(
@@ -14,35 +8,6 @@ export class APIError extends Error {
     super(message);
     this.name = 'APIError';
   }
-}
-
-// Validate request data before sending
-function validateAnalyzeOrderRequest(req: AnalyzeOrderRequest): string | null {
-  if (!req.order_id || req.order_id.trim().length === 0) {
-    return "Order ID is required";
-  }
-
-  if (req.distance_km <= 0 || req.distance_km > MAX_DISTANCE_KM) {
-    return `Distance must be between 0 and ${MAX_DISTANCE_KM} km`;
-  }
-
-  if (req.earnings < MIN_EARNINGS || req.earnings > MAX_EARNINGS) {
-    return `Earnings must be between ${MIN_EARNINGS} and ${MAX_EARNINGS}`;
-  }
-
-  if (req.location.lat < -90 || req.location.lat > 90) {
-    return "Latitude must be between -90 and 90 degrees";
-  }
-
-  if (req.location.lng < -180 || req.location.lng > 180) {
-    return "Longitude must be between -180 and 180 degrees";
-  }
-
-  if (!req.timestamp || new Date(req.timestamp).toString() === "Invalid Date") {
-    return "Invalid or missing timestamp";
-  }
-
-  return null; // Valid
 }
 
 // Validate and get API base URL
@@ -79,67 +44,33 @@ export interface AnalyzeOrderResponse {
 }
 
 export async function analyzeOrder(req: AnalyzeOrderRequest): Promise<AnalyzeOrderResponse> {
-  // Validate request before sending
-  const validationError = validateAnalyzeOrderRequest(req);
-  if (validationError) {
-    throw new APIError(400, 'Validation Error', validationError);
-  }
-
   try {
-    // Create abort controller for timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    const response = await fetch(`${API_BASE_URL}/api/analyze-order`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(req),
+    });
 
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/analyze-order`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(req),
-        signal: controller.signal,
-      });
+    // Handle non-ok responses with specific status information
+    if (!response.ok) {
+      let errorMessage = "Failed to analyze order";
+      let errorData: unknown = null;
 
-      clearTimeout(timeoutId);
-
-      // Handle non-ok responses with specific status information
-      if (!response.ok) {
-        let errorMessage = "Failed to analyze order";
-        let errorData: unknown = null;
-
-        try {
-          errorData = await response.json();
-          if (typeof errorData === 'object' && errorData !== null && 'error' in errorData) {
-            errorMessage = (errorData as { error: string }).error;
-          }
-        } catch {
-          // Response is not JSON, use HTTP status text
-          errorMessage = `API Error (${response.status}): ${response.statusText}`;
+      try {
+        errorData = await response.json();
+        if (typeof errorData === 'object' && errorData !== null && 'error' in errorData) {
+          errorMessage = (errorData as { error: string }).error;
         }
-
-        throw new APIError(response.status, response.statusText, errorMessage);
+      } catch {
+        // Response is not JSON, use HTTP status text
+        errorMessage = `API Error (${response.status}): ${response.statusText}`;
       }
 
-      const data = await response.json() as AnalyzeOrderResponse;
-      
-      // Validate response data
-      if (!data.order_id || !data.decision) {
-        throw new APIError(500, 'Invalid Response', 'Server returned incomplete data');
-      }
-
-      return data;
-    } catch (error) {
-      clearTimeout(timeoutId);
-      
-      // Handle abort as timeout
-      if (error instanceof Error && error.name === 'AbortError') {
-        throw new APIError(
-          408,
-          'Request Timeout',
-          `Request took longer than ${REQUEST_TIMEOUT_MS / 1000} seconds. Try again.`
-        );
-      }
-      
-      throw error;
+      throw new APIError(response.status, response.statusText, errorMessage);
     }
+
+    const data = await response.json() as AnalyzeOrderResponse;
+    return data;
   } catch (error) {
     // Re-throw APIError as-is
     if (error instanceof APIError) {

@@ -71,8 +71,6 @@ export default function Home() {
           errorMessage = `Network Error: Cannot reach backend. Please ensure the API server is running.`;
         } else if (err.status === 400) {
           errorMessage = `Invalid request: ${err.message}`;
-        } else if (err.status === 408) {
-          errorMessage = `Request timeout: ${err.message}`;
         } else if (err.status === 500) {
           errorMessage = `Server error: ${err.message}`;
         } else {
@@ -98,7 +96,7 @@ export default function Home() {
 
   return (
     <main className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden px-4 py-12"
-      style={{ background: "linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)" }}>
+      style={{ background: "#050a18" }}>
 
       {/* ── Dynamic animated background ────────────────────────── */}
       {/* Floating gradient orbs */}

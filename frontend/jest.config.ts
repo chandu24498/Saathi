@@ -12,7 +12,7 @@ const config: Config = {
     '^@/(.*)$': '<rootDir>/src/$1',
     '\\.(css|less|scss|sass)$': '<rootDir>/src/__mocks__/styleMock.ts',
   },
-  setupFilesAfterSetup: ['<rootDir>/src/setupTests.ts'],
+  setupFilesAfterEnv: ['<rootDir>/src/setupTests.ts'],
   testPathIgnorePatterns: ['/node_modules/', '/.next/'],
   collectCoverage: true,
   coverageDirectory: 'coverage',
