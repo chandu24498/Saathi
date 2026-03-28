@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: saathi-backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: saathi-backend
+  template:
+    metadata:
+      labels:
+        app: saathi-backend
+    spec:
+      containers:
+      - name: backend
+        image: gcr.io/saathi-491606/saathi-backend:v1
+        ports:
+        - containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: saathi-backend-svc
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+    targetPort: 8080
+  selector:
+    app: saathi-backend
