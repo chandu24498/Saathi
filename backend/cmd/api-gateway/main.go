@@ -133,7 +133,7 @@ func handleAnalyzeOrder(c *gin.Context) {
 	// Save the order to Firestore (non-blocking with proper context handling)
 	if fsClient != nil {
 		go func() {
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), FirestoreTimeout)
 			defer cancel()
 			if err := fsClient.SaveOrder(ctx, req); err != nil {
 				logger.Printf("Firestore SaveOrder error for %s: %v", req.OrderID, err)
@@ -156,7 +156,7 @@ func handleAnalyzeOrder(c *gin.Context) {
 	// Save the result to Firestore (non-blocking with proper context handling)
 	if fsClient != nil {
 		go func() {
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), FirestoreTimeout)
 			defer cancel()
 			if err := fsClient.SaveResult(ctx, result); err != nil {
 				logger.Printf("Firestore SaveResult error for %s: %v", result.OrderID, err)
@@ -178,7 +178,7 @@ func handleRecentOrders(c *gin.Context) {
 		})
 		return
 	}
-	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), FirestoreTimeout)
 	defer cancel()
 
 	orders, err := fsClient.GetRecentOrders(ctx, 20)

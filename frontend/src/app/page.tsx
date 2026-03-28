@@ -71,6 +71,8 @@ export default function Home() {
           errorMessage = `Network Error: Cannot reach backend. Please ensure the API server is running.`;
         } else if (err.status === 400) {
           errorMessage = `Invalid request: ${err.message}`;
+        } else if (err.status === 408) {
+          errorMessage = `Request timeout: ${err.message}`;
         } else if (err.status === 500) {
           errorMessage = `Server error: ${err.message}`;
         } else {
