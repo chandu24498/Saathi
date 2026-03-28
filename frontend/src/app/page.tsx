@@ -96,7 +96,7 @@ export default function Home() {
 
   return (
     <main className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden px-4 py-12"
-      style={{ background: "#050a18" }}>
+      style={{ background: "linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)" }}>
 
       {/* ── Dynamic animated background ────────────────────────── */}
       {/* Floating gradient orbs */}

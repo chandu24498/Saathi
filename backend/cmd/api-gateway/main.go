@@ -35,12 +35,33 @@ type AnalysisErrorResponse struct {
 
 var logger = log.New(os.Stdout, "[Saathi API] ", log.LstdFlags|log.Lshortfile)
 
+// Configuration constants
+const (
+	// Firebase initialization timeout
+	FirestoreInitTimeout = 10 * time.Second
+
+	// Request processing timeout for Firestore operations
+	FirestoreTimeout = 5 * time.Second
+
+	// CORS max age in seconds
+	CORSMaxAge = "3600"
+)
+
+// Allowed origins for CORS (configure via environment or hardcode trusted domains)
+var AllowedOrigins = map[string]bool{
+	"http://localhost:3000":                            true,
+	"https://saathi-frontend-abcd1234.vercel.app":     true,
+	"https://saathi-frontend-kgzlbaodia-uc.a.run.app": true,
+}
+
 // Global Firestore client (nil if unavailable – graceful degradation)
 var fsClient *services.FirestoreClient
 
 func main() {
 	// Initialise Firestore
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
 	fc, err := services.NewFirestoreClient(ctx)
 	if err != nil {
 		logger.Printf("WARNING: Firestore unavailable – running without persistence: %v", err)
@@ -51,15 +72,16 @@ func main() {
 
 	r := gin.Default()
 
-	// CORS middleware
+	// CORS middleware with origin validation
 	r.Use(func(c *gin.Context) {
 		origin := c.Request.Header.Get("Origin")
-		if origin != "" {
+		// Only set CORS header if origin is in allowlist
+		if origin != "" && AllowedOrigins[origin] {
 			c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
 		}
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
 		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-		c.Writer.Header().Set("Access-Control-Max-Age", "3600")
+		c.Writer.Header().Set("Access-Control-Max-Age", CORSMaxAge)
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(204)
 			return
@@ -108,13 +130,13 @@ func handleAnalyzeOrder(c *gin.Context) {
 	logger.Printf("Analyzing order: %s (earnings=%.2f, distance=%.2f km)",
 		req.OrderID, req.Earnings, req.DistanceKM)
 
-	// Save the order to Firestore (non-blocking)
+	// Save the order to Firestore (non-blocking with proper context handling)
 	if fsClient != nil {
 		go func() {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 			if err := fsClient.SaveOrder(ctx, req); err != nil {
-				logger.Printf("Firestore SaveOrder error: %v", err)
+				logger.Printf("Firestore SaveOrder error for %s: %v", req.OrderID, err)
 			}
 		}()
 	}
@@ -122,7 +144,8 @@ func handleAnalyzeOrder(c *gin.Context) {
 	// Run analysis
 	result := services.AnalyzeOrder(req)
 
-	if result.Decision == "" {
+	if result.Decision == "" || result.OrderID == "" || result.EarningsPerHour < 0 || result.EstimatedTimeMinutes < 0 {
+		logger.Printf("Invalid response generated for order %s", req.OrderID)
 		c.JSON(http.StatusInternalServerError, ErrorResponse{
 			Error:  "Failed to generate analysis",
 			Status: http.StatusInternalServerError,
@@ -130,13 +153,13 @@ func handleAnalyzeOrder(c *gin.Context) {
 		return
 	}
 
-	// Save the result to Firestore (non-blocking)
+	// Save the result to Firestore (non-blocking with proper context handling)
 	if fsClient != nil {
 		go func() {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 			if err := fsClient.SaveResult(ctx, result); err != nil {
-				logger.Printf("Firestore SaveResult error: %v", err)
+				logger.Printf("Firestore SaveResult error for %s: %v", result.OrderID, err)
 			}
 		}()
 	}

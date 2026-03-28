@@ -29,11 +29,20 @@ type AnalyzeOrderResponse struct {
 	SuggestedRelocation  *string `json:"suggested_relocation"`
 }
 
-// Configurable threshold (INR per hour). Orders above this are worth taking.
-const EarningsPerHourThreshold = 300.0
+// Configuration constants for order analysis.
+const (
+	// EarningsPerHourThreshold: Orders above this are worth taking (INR per hour)
+	EarningsPerHourThreshold = 300.0
 
-// Average speed assumption for Bangalore city traffic (km/h).
-const AverageSpeedKMH = 20.0
+	// AverageSpeedKMH: Average speed assumption for Bangalore city traffic (km/h)
+	AverageSpeedKMH = 20.0
+
+	// MinimumEarningsPerOrder: Reject orders below this amount (INR)
+	MinimumEarningsPerOrder = 30.0
+
+	// MaximumDistanceKM: Reject orders with distance greater than this (km)
+	MaximumDistanceKM = 25.0
+)
 
 // High-demand zones in Bangalore (lat, lng, radius_km, name).
 type demandZone struct {
@@ -52,12 +61,15 @@ var highDemandZones = []demandZone{
 }
 
 // haversineKM calculates the great-circle distance in kilometers between two lat/lng coordinates.
-// Returns -1 for invalid coordinates (outside WGS84 bounds).
+// Returns an error for invalid coordinates (outside WGS84 bounds).
 // Assumes WGS84 Earth radius of 6371 km.
-func haversineKM(lat1, lng1, lat2, lng2 float64) float64 {
+func haversineKM(lat1, lng1, lat2, lng2 float64) (float64, error) {
 	// Validate coordinate ranges for WGS84
-	if !isValidCoordinate(lat1, lng1) || !isValidCoordinate(lat2, lng2) {
-		return -1 // Sentinel value indicating invalid input
+	if !isValidCoordinate(lat1, lng1) {
+		return 0, fmt.Errorf("invalid first coordinate: lat=%f, lng=%f", lat1, lng1)
+	}
+	if !isValidCoordinate(lat2, lng2) {
+		return 0, fmt.Errorf("invalid second coordinate: lat=%f, lng=%f", lat2, lng2)
 	}
 
 	const R = 6371.0 // Earth radius in kilometers
@@ -67,7 +79,7 @@ func haversineKM(lat1, lng1, lat2, lng2 float64) float64 {
 		math.Cos(lat1*math.Pi/180.0)*math.Cos(lat2*math.Pi/180.0)*
 			math.Sin(dLng/2)*math.Sin(dLng/2)
 	c := 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
-	return R * c
+	return R * c, nil
 }
 
 // isValidCoordinate validates that latitude and longitude are within WGS84 bounds.
@@ -81,7 +93,11 @@ func findRelocationSuggestion(lat, lng float64) *string {
 	var nearest string
 	minDist := math.MaxFloat64
 	for _, z := range highDemandZones {
-		d := haversineKM(lat, lng, z.Lat, z.Lng)
+		d, err := haversineKM(lat, lng, z.Lat, z.Lng)
+		if err != nil {
+			// Skip invalid zone coordinates
+			continue
+		}
 		if d < z.Radius {
 			// Already in a high-demand zone – no relocation needed.
 			return nil

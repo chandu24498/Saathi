@@ -8,7 +8,11 @@ interface DeliveryMapProps {
   areaName: string;
 }
 
-const MAPS_API_KEY = process.env.NEXT_PUBLIC_MAPS_API_KEY || "AIzaSyDc66-e57S1exDjZ2fU1P25aIyDbHkPt_I";
+const MAPS_API_KEY = process.env.NEXT_PUBLIC_MAPS_API_KEY;
+
+if (!MAPS_API_KEY) {
+  throw new Error('NEXT_PUBLIC_MAPS_API_KEY environment variable is not set');
+}
 
 export const DeliveryMap: React.FC<DeliveryMapProps> = ({ deliveryLat, deliveryLng, areaName }) => {
   const mapRef = useRef<HTMLDivElement>(null);
